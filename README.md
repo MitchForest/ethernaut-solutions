@@ -1,97 +1,72 @@
 # Ethernaut Solutions
 
-This repository contains solutions to the [Ethernaut](https://ethernaut.openzeppelin.com/) challenges, implemented using the [Foundry](https://book.getfoundry.sh/) framework.
+Solutions to [Ethernaut](https://ethernaut.openzeppelin.com/) challenges using [Foundry](https://book.getfoundry.sh/).
 
-Ethernaut is a Web3/Solidity-based game where each level is a smart contract that needs to be hacked. This repository provides:
-- Local testing solutions
-- Scripts for interacting with deployed instances
-- Attack contracts for complex exploits
-- Detailed explanations of vulnerabilities
+This repository contains my solutions to the Ethernaut smart contract security challenges, demonstrating various vulnerabilities and exploitation techniques. Each solution includes detailed explanations of the vulnerabilities and security lessons to take away.
 
-## Setup
+## Getting Started
 
-1. Clone this repository
+### Prerequisites
+- [Foundry](https://getfoundry.sh/) installed
+- A wallet with some Sepolia ETH for testing
+
+### Setup
+
+1. Clone and install dependencies
 ```bash
 git clone https://github.com/mitchforest/ethernaut-solutions.git
 cd ethernaut-solutions
-```
-
-2. Install dependencies
-```bash
 forge install
 ```
 
-3. Configure your environment
+2. Configure your environment
 ```bash
 cp .env.example .env
+# Add your private key (with 0x prefix) and RPC URL
 ```
 
-Then edit the `.env` file to add your:
-- Network RPC URL
-- Player wallet address
-- Private key (for sending transactions)
-- Deployed instance addresses (from the Ethernaut UI)
+## Understanding the Solutions
 
-## Repository Structure
+Each solution script in `script/solutions/` follows a consistent pattern:
 
-```
-├── docs/
-│   └── challenge-writeups.md    # Detailed explanations of each vulnerability
-├── script/
-│   ├── DeployedSolver.s.sol     # Base script for solving deployed instances
-│   ├── RunAll.s.sol             # Script to run multiple solutions sequentially
-│   └── solutions/               # Scripts for solving deployed instances
-├── src/
-│   ├── attacks/                 # Contracts used to attack challenges
-│   └── solutions/               # Local testing solutions
-└── lib/
-    └── ethernaut/               # Original Ethernaut challenge contracts
-```
+1. **Direct interaction** with the vulnerable contract
+2. **Step-by-step exploitation** with detailed comments
+3. **Comprehensive explanation** of the vulnerability at the end of each file
 
-## Solving Challenges
+To learn from a solution:
+1. Read the vulnerability explanation at the bottom of the script
+2. Follow the step-by-step exploitation in the `run()` function
+3. Try to understand how each step contributes to the exploit
 
-### Local Testing (Simulation)
+## Running Solutions Yourself
 
-For local testing without deploying:
+If you want to try the solutions against your own Ethernaut instances:
+
+1. Create your own instance in the [Ethernaut UI](https://ethernaut.openzeppelin.com/)
+2. Copy the solution script for the challenge you're working on
+3. Update the instance address in the script
+4. Run it with Foundry:
 
 ```bash
-# Run a specific solution
-forge test --match-contract FallbackSolution -vvv
+forge script script/solutions/ChallengeSolver.s.sol \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast
 ```
 
-### Working with Deployed Instances
+## Troubleshooting
 
-After creating an instance on the Ethernaut website:
-
-1. Add the instance address to your `.env` file
-2. Run the solution script:
-
-```bash
-# To solve a specific challenge
-forge script script/solutions/FallbackSolver.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
-
-# To solve multiple challenges at once
-forge script script/RunAll.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
-
-# To solve a specific subset of challenges
-SOLUTIONS=coinflip forge script script/RunAll.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
-```
-
-3. Return to the Ethernaut UI and click "Submit Instance" to verify
-
-## Challenge Writeups
-
-Check out `docs/challenge-writeups.md` for detailed explanations that include:
-- Vulnerability description
-- Exploit technique
-- Real-world security implications
-- Security lessons
+- **Build issues**: Run `forge clean && forge build`
+- **Transaction errors**: Use the `-vvv` flag for detailed output
+- **Contract verification**: After running the solution, check in the Ethernaut UI if you've successfully completed the challenge
 
 ## Completed Solutions
 
-- [x] 01. Fallback - `src/solutions/Fallback.sol`
-- [x] 02. CoinFlip - `src/solutions/CoinFlip.sol`
-- [ ] 03. Fallout
+- [x] 01. Fallback - `script/solutions/FallbackSolver.s.sol`
+  - Exploits a flawed receive function to gain ownership
+- [x] 02. Fallout - `script/solutions/FalloutSolver.s.sol`
+  - Takes advantage of a typo in the constructor name
+- [ ] 03. CoinFlip
 - [ ] 04. Telephone
 - [ ] 05. Token
 - [ ] 06. Delegation
@@ -118,11 +93,19 @@ Check out `docs/challenge-writeups.md` for detailed explanations that include:
 - [ ] 27. GoodSamaritan
 - [ ] 28. GatekeeperThree
 - [ ] 29. Switch
-- [ ] 30. MagicAnimalCarousel
-- [ ] 31. Impersonator
-- [ ] 32. HigherOrder
-- [ ] 33. Stake
+- [ ] 30. HigherOrder
+- [ ] 31. Stake
+- [ ] 32. Impersonator
+- [ ] 33. MagicAnimalCarousel
 
-## Contributing
+## Security Lessons
 
-Feel free to contribute your own solutions by creating a pull request!
+These challenges demonstrate important security concepts including:
+- Access control vulnerabilities
+- Improper initialization
+- Arithmetic issues
+- Reentrancy
+- Front-running
+- And many more
+
+Each solution script contains specific security takeaways relevant to that challenge.
